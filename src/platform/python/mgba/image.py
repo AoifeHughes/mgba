@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from ._pylib import ffi  # pylint: disable=no-name-in-module
 from . import png
+import io 
+import numpy as np
+import cv2  
 
 try:
     import PIL.Image as PImage
@@ -25,12 +28,31 @@ class Image:
             self.stride = self.width
         self.buffer = ffi.new("color_t[{}]".format(self.stride * self.height))
 
+
+
     def save_png(self, fileobj):
         png_file = png.PNG(fileobj, mode=png.MODE_RGBA if self.alpha else png.MODE_RGB)
         success = png_file.write_header(self)
         success = success and png_file.write_pixels(self)
         png_file.write_close()
         return success
+    
+    def get_cv2_image(self):
+        # Convert the buffer to a numpy array
+        buffer = np.frombuffer(ffi.buffer(self.buffer), dtype=np.uint8)
+
+        # Use the actual stride for reshaping the buffer
+        buffer = buffer.reshape((self.height, self.width, 4))
+
+        # Crop the buffer to remove any potential padding (if stride > width)
+        buffer = buffer[:, :self.width, :]
+
+        # Convert to BGR format for OpenCV if not alpha
+        if not self.alpha:
+            buffer = cv2.cvtColor(buffer, cv2.COLOR_RGB2BGR)
+
+        return buffer
+
 
     if 'PImage' in globals():
         def to_pil(self):
